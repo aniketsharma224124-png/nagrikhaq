@@ -420,7 +420,7 @@ const HIDDEN_SCHEMES = [
 ];
 
 const STATES = ["Andhra Pradesh", "Assam", "Bihar", "Chhattisgarh", "Delhi", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Odisha", "Punjab", "Rajasthan", "Tamil Nadu", "Telangana", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Other"];
-const RZP_KEY = "rzp_live_SO0pCAyij4f6Ic";
+const RZP_KEY = import.meta.env.VITE_RAZORPAY_KEY || "rzp_test_YourTestKeyHere";
 
 // ══════════════════════════════════════════
 //  PDF BUILDER (full 25+ page report)
