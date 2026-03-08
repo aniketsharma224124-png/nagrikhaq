@@ -869,6 +869,7 @@ export default function NagrikHaq() {
   const [report, setReport] = useState(null);
   const [toast, setToast] = useState("");
   const [pendingTool, setPendingTool] = useState(null);
+  const [upiModal, setUpiModal] = useState({ show: false, amount: 0, label: "", callback: null });
 
   const showT = m => { setToast(m); setTimeout(() => setToast(""), 3500); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -887,54 +888,89 @@ export default function NagrikHaq() {
     showT("✅ Payment confirmed! Your guide is ready!");
   };
 
-  // ── open Razorpay checkout ──
-  const openRazorpay = (label, onSuccess) => {
-    const launch = () => {
-      const options = {
-        key: RZP_KEY,
-        amount: (label === "Nagrik Haq Report" || label === "Bank Fraud Recovery Guide") ? 9900 : 4900,           // ₹99 or ₹49 in paise
-        currency: "INR",
-        name: "NagrikHaq.in",
-        description: label + " — Personalised Govt Scheme Guide",
-        image: "https://i.imgur.com/n5tjHFD.png",
-        prefill: {
-          name: form.name || "",
-          contact: form.phone ? "91" + form.phone : "",
-        },
-        notes: { product: label },
-        theme: { color: "#FF6B00" },
-        handler: function (response) {
-          // payment successful
-          onSuccess(response);
-        },
-        modal: {
-          ondismiss: function () { setPendingTool(null); }
-        }
-      };
-      const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", function (r) { alert("Payment failed: " + r.error.description + ". Please try again."); });
-      rzp.open();
-    };
-    if (window.Razorpay) { launch(); return; }
-    // load script if not yet loaded
-    const s = document.createElement("script");
-    s.src = "https://checkout.razorpay.com/v1/checkout.js";
-    s.onload = launch;
-    s.onerror = () => alert("Could not load payment gateway. Check your internet connection.");
-    document.body.appendChild(s);
+  // ── open UPI checkout modal ──
+  const openUPI = (label, onSuccess) => {
+    const amount = (label === "Nagrik Haq Report" || label === "Bank Fraud Recovery Guide") ? 99 : 49;
+    setUpiModal({ show: true, amount, label, callback: onSuccess });
+  };
+
+  const handleUPISuccess = () => {
+    if (upiModal.callback) upiModal.callback({ razorpay_payment_id: "upi_" + Date.now() });
+    setUpiModal({ show: false, amount: 0, label: "", callback: null });
+  };
+
+  const handleUPICancel = () => {
+    setUpiModal({ show: false, amount: 0, label: "", callback: null });
+    setPendingTool(null);
   };
 
   const openTool = (t) => {
     setPendingTool(t);
     const labels = { rejection: "Rejection Fix Kit", hidden: "Hidden Benefits List", student: "Student Pack", women: "Women Schemes Guide", farmer: "Farmer Benefits Guide", bankfraud: "Bank Fraud Recovery Guide", senior: "Senior Citizen Rights Guide" };
-    openRazorpay(labels[t] || t, () => handlePay(t));
+    openUPI(labels[t] || t, () => handlePay(t));
   };
 
   const S = { s: "#FF6B00", g: "#138808", n: "#0A1628" };
 
+  const renderUPIModal = () => {
+    if (!upiModal.show) return null;
+    const upiID = "aniketsharma224124-1@oksbi";
+    const upiLink = `upi://pay?pa=${upiID}&pn=NagrikHaq&tr=${Date.now()}&am=${upiModal.amount}&cu=INR&tn=${encodeURIComponent(upiModal.label)}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiLink)}`;
+
+    return (
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 400, overflow: "hidden", position: "relative" }}>
+
+          {/* Header */}
+          <div style={{ background: "#F9FAFB", padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #E5E7EB" }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: "#111827" }}>Secure UPI Payment</div>
+              <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{upiModal.label}</div>
+            </div>
+            <button onClick={handleUPICancel} style={{ background: "none", border: "none", fontSize: 24, color: "#9CA3AF", cursor: "pointer", lineHeight: 1 }}>&times;</button>
+          </div>
+
+          <div style={{ padding: 24, textAlign: "center" }}>
+            <div style={{ fontWeight: 900, fontSize: 36, color: "#111827", marginBottom: 20 }}>₹{upiModal.amount}</div>
+
+            {/* Mobile Action */}
+            <a href={upiLink} style={{ display: "block", textDecoration: "none", background: "linear-gradient(135deg, #10B981, #059669)", color: "#fff", padding: "14px", borderRadius: 12, fontWeight: 800, fontSize: 16, marginBottom: 24, boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)" }}>
+              📲 Pay via GPay / PhonePe
+            </a>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "20px 0" }}>
+              <div style={{ height: 1, background: "#E5E7EB", flex: 1 }}></div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" }}>OR SCAN QR CODE</div>
+              <div style={{ height: 1, background: "#E5E7EB", flex: 1 }}></div>
+            </div>
+
+            {/* Desktop / Manual Action */}
+            <div style={{ background: "#F3F4F6", padding: 16, borderRadius: 16, display: "inline-block", marginBottom: 16, border: "1px solid #E5E7EB" }}>
+              <img src={qrUrl} alt="UPI QR Code" style={{ width: 180, height: 180, borderRadius: 8, display: "block" }} />
+            </div>
+
+            <div style={{ background: "#FEF3C7", border: "1px solid #FDE68A", borderRadius: 10, padding: 12, marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: "#B45309", fontWeight: 700 }}>Scan from any UPI App to pay</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#92400E", marginTop: 4, letterSpacing: 0.5 }}>{upiID}</div>
+            </div>
+
+            {/* Frictionless Trust Button */}
+            <button onClick={handleUPISuccess} style={{ width: "100%", background: "#4F46E5", color: "#fff", border: "none", padding: "16px", borderRadius: 12, fontWeight: 800, fontSize: 16, cursor: "pointer", boxShadow: "0 4px 12px rgba(79, 70, 229, 0.3)" }}>
+              ✅ I Have Successfully Paid
+            </button>
+            <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 12 }}>Unlocks instantly upon confirmation.</div>
+
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ── HOME ──
   if (page === "home") return (
     <div style={{ fontFamily: "Arial,sans-serif", background: "#FAFAF8", minHeight: "100vh", color: S.n }}>
+      {renderUPIModal()}
       {/* NAV */}
       <div style={{ position: "sticky", top: 0, zIndex: 99, background: "rgba(255,255,255,.97)", borderBottom: `3px solid ${S.s}`, padding: "10px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -1070,6 +1106,7 @@ export default function NagrikHaq() {
   // ── FORM ──
   if (page === "form") return (
     <div style={{ fontFamily: "Arial,sans-serif", background: "#FAFAF8", minHeight: "100vh", padding: "18px 14px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+      {renderUPIModal()}
       <button onClick={() => setPage("home")} style={{ alignSelf: "flex-start", background: "none", border: "none", color: S.s, fontWeight: 700, fontSize: 14, cursor: "pointer", marginBottom: 14 }}>← Back</button>
       <div style={{ width: "100%", maxWidth: 580, background: "#fff", borderRadius: 20, boxShadow: "0 16px 50px rgba(0,0,0,.08)", overflow: "hidden", border: "1px solid #E5E7EB" }}>
         <div style={{ background: `linear-gradient(135deg,${S.n},#142238)`, padding: "24px 26px", textAlign: "center" }}>
@@ -1143,6 +1180,7 @@ export default function NagrikHaq() {
   // ── REPORT ──
   if (page === "report" && report) return (
     <div style={{ fontFamily: "Arial,sans-serif", background: "#FAFAF8", minHeight: "100vh", padding: "22px 14px" }}>
+      {renderUPIModal()}
       <div style={{ maxWidth: 620, margin: "0 auto", textAlign: "center" }}>
         <div style={{ fontSize: 58, marginBottom: 12 }}>🎉</div>
         <h2 style={{ fontWeight: 900, fontSize: 24, color: S.g, marginBottom: 7 }}>Payment Done! Your Report is Ready!</h2>
@@ -1189,6 +1227,7 @@ export default function NagrikHaq() {
 function ToolPage({ tool, report, setPage, S }) {
   if (tool === "rejection") return (
     <div style={{ fontFamily: "Arial,sans-serif", background: "#FAFAF8", minHeight: "100vh", padding: "22px 16px" }}>
+      {renderUPIModal()}
       <button onClick={() => setPage("home")} style={{ background: "none", border: "none", color: S.s, fontWeight: 700, fontSize: 14, cursor: "pointer", marginBottom: 18 }}>← Back to Home</button>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div style={{ background: "linear-gradient(135deg,#7F1D1D,#DC2626)", borderRadius: 16, padding: 28, textAlign: "center", marginBottom: 24, color: "#fff" }}>
@@ -1252,6 +1291,7 @@ function ToolPage({ tool, report, setPage, S }) {
 
   if (tool === "hidden") return (
     <div style={{ fontFamily: "Arial,sans-serif", background: "#FAFAF8", minHeight: "100vh", padding: "22px 16px" }}>
+      {renderUPIModal()}
       <button onClick={() => setPage("home")} style={{ background: "none", border: "none", color: S.s, fontWeight: 700, fontSize: 14, cursor: "pointer", marginBottom: 18 }}>← Back to Home</button>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div style={{ background: "linear-gradient(135deg,#4C1D95,#7C3AED)", borderRadius: 16, padding: 28, textAlign: "center", marginBottom: 24, color: "#fff" }}>
@@ -1314,6 +1354,7 @@ function ToolPage({ tool, report, setPage, S }) {
 
   if (tool === "student") return (
     <div style={{ fontFamily: "Arial,sans-serif", background: "#FAFAF8", minHeight: "100vh", padding: "22px 16px" }}>
+      {renderUPIModal()}
       <button onClick={() => setPage("home")} style={{ background: "none", border: "none", color: S.s, fontWeight: 700, fontSize: 14, cursor: "pointer", marginBottom: 18 }}>← Back to Home</button>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div style={{ background: "linear-gradient(135deg,#0C4A6E,#0369A1)", borderRadius: 16, padding: 28, textAlign: "center", marginBottom: 24, color: "#fff" }}>
@@ -1400,6 +1441,7 @@ function ToolPage({ tool, report, setPage, S }) {
   // ── WOMEN SCHEMES ──
   if (tool === "women") return (
     <div style={{ fontFamily: "Arial,sans-serif", background: "#FAFAF8", minHeight: "100vh", padding: "22px 16px" }}>
+      {renderUPIModal()}
       <button onClick={() => setPage("home")} style={{ background: "none", border: "none", color: S.s, fontWeight: 700, fontSize: 14, cursor: "pointer", marginBottom: 18 }}>← Back to Home</button>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div style={{ background: "linear-gradient(135deg,#831843,#DB2777)", borderRadius: 16, padding: 28, textAlign: "center", marginBottom: 24, color: "#fff" }}>
