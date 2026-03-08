@@ -876,14 +876,20 @@ export default function NagrikHaq() {
   const getSchemes = () => ALL_SCHEMES.filter(s => { try { return s.cond(form); } catch { return false; } });
   const calcTotal = ss => { let t = 0; ss.forEach(s => { const n = parseInt((s.amount || "").replace(/[^0-9]/g, "")); if (n) t += n; }); return t > 0 ? "₹" + t.toLocaleString("en-IN") + "+" : "₹1,24,000+"; };
 
-  // ── called after Razorpay success ──
+  // ── called after Razorpay/UPI success ──
   const handlePay = (toolType) => {
     const ss = getSchemes();
     const el = ss.length > 0 ? ss : ALL_SCHEMES.slice(0, 10);
     const r = { data: form, schemes: el, total: calcTotal(el) };
     setReport(r);
     const activeTool = toolType || pendingTool;
-    if (activeTool) { setTool(activeTool); setPendingTool(null); setPage("tool"); }
+    if (activeTool) {
+      setTool(activeTool);
+      setPendingTool(null);
+      setPage("tool");
+      // Auto-download the requested PDF immediately after payment verified
+      setTimeout(() => buildToolPDF(activeTool), 800);
+    }
     else { setPage("report"); }
     showT("✅ Payment confirmed! Your guide is ready!");
   };
